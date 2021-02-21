@@ -44,4 +44,6 @@ module.exports = app => {
   router.post('/default/deleteComment', interceptor, controller.home.deleteComment);
   // 收藏音乐
   router.post('/default/saveMusic', interceptor, controller.home.saveMusic);
+  // 获取同类音乐列表
+  router.post('/default/getSameListById', controller.home.getSameListById);
 }

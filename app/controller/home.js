@@ -472,37 +472,37 @@ class HomeController extends Controller {
       'LEFT JOIN users ON relation_music_save.user_id = users.id ' +
       'ORDER BY songs.create_time DESC'
 
-      const result = await this.app.mysql.query(sql);
+    const result = await this.app.mysql.query(sql);
 
-      const arr = result.filter(item => item.id === parseInt(id));
+    const arr = result.filter(item => item.id === parseInt(id));
 
-      const types = arr.map(item => ({
-        typeName: item.type,
-        typeId: item.typeId
-      }))
+    const types = arr.map(item => ({
+      typeName: item.type,
+      typeId: item.typeId
+    }))
 
-      const likePersons = arr.map(item => ({
-        user_id: item.userId || 0,
-        username: item.username || "",
-        avatar_url: item.avatar_url || ""
-      }));
+    const likePersons = arr.map(item => ({
+      user_id: item.userId || 0,
+      username: item.username || "",
+      avatar_url: item.avatar_url || ""
+    }));
 
 
-      utils.noRepeat(likePersons, 'user_id');
-      utils.noRepeat(types, 'typeId');
-      utils.noRepeat(arr, 'id');
-      arr[0].type = types;
-      arr[0].likePersons = likePersons.filter(item => item.user_id !== 0);
-      delete arr[0].typeId;
-      delete arr[0].song_id;
-      delete arr[0].user_id;
-      delete arr[0].avatar_url;
-      delete arr[0].userId;
-      delete arr[0].username;
+    utils.noRepeat(likePersons, 'user_id');
+    utils.noRepeat(types, 'typeId');
+    utils.noRepeat(arr, 'id');
+    arr[0].type = types;
+    arr[0].likePersons = likePersons.filter(item => item.user_id !== 0);
+    delete arr[0].typeId;
+    delete arr[0].song_id;
+    delete arr[0].user_id;
+    delete arr[0].avatar_url;
+    delete arr[0].userId;
+    delete arr[0].username;
 
-      this.ctx.body = {
-        data: arr,
-      }
+    this.ctx.body = {
+      data: arr,
+    }
 
     //   let sql = 'SELECT songs.id,' +
     //   'songs.song_singer, ' +
@@ -850,7 +850,7 @@ class HomeController extends Controller {
           const deleteCommentParentInfo = await this.app.mysql.delete('comments_relation_parent', {
             commentParentId: id
           });
-          for (let i = 0; i < childId.length; i ++) {
+          for (let i = 0; i < childId.length; i++) {
             const deleteCommentChildInfo = await this.app.mysql.delete('comments_relation_child', {
               commentChildId: childId[i]
             });
@@ -902,6 +902,58 @@ class HomeController extends Controller {
           status: 200
         }
       }
+    }
+  }
+
+  // 通过歌曲id获取同类列表
+  async getSameListById () {
+    const type = this.ctx.request.body.type;
+    const song_id = this.ctx.request.body.song_id;
+
+    let sql = 'SELECT songs.id,' +
+      'songs.song_singer, ' +
+      'songs.song_name, ' +
+      'songs.song_url, ' +
+      'songs.song_introduce, ' +
+      'songs.song_album, ' +
+      'songs.create_user, ' +
+      'songs.create_id, ' +
+      "FROM_UNIXTIME(songs.create_time,'%Y-%m-%d %H:%i:%s') as create_time, " +
+      'songs.song_hot, ' +
+      'songtypes.name as type, ' +
+      'songtypes.id as typeId ' +
+      'FROM song_types LEFT JOIN songtypes ON song_types.songTypeId = songtypes.id ' +
+      'LEFT JOIN songs ON songs.id = song_types.songId ' +
+      'ORDER BY songs.create_time DESC'
+    const result = await this.app.mysql.query(sql);
+    const arr = [];
+
+    // 进行数据处理
+    for (let i = 0; i < result.length; i++) {
+      let types = new Array({ typeName: result[i].type, typeId: result[i].typeId });
+      for (let j = i + 1; j < result.length; j++) {
+        if (result[i].id === result[j].id) {
+          types.push({ typeName: result[j].type, typeId: result[j].typeId });
+        }
+      }
+      if (!(arr.find((value, index, arr) => value.id === result[i].id))) {
+        result[i].type = types;
+        delete result[i].typeId;
+        arr.push(result[i]);
+      }
+    }
+
+    const res = [];
+
+    arr.forEach(item => {
+      let typeArr = (item.type).map(item1 => parseInt(item1.typeId));
+      if (typeArr.sort().toString() == type.sort().toString()) {
+        res.push(item);
+      }
+    });
+
+    this.ctx.body = {
+      res: res.filter(item => item.id !== parseInt(song_id)),
     }
   }
 }
