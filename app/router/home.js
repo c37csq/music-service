@@ -46,4 +46,6 @@ module.exports = app => {
   router.post('/default/saveMusic', interceptor, controller.home.saveMusic);
   // 获取同类音乐列表
   router.post('/default/getSameListById', controller.home.getSameListById);
+  // 获取动态列表
+  router.get('/default/getDynamicList', interceptor, controller.home.getDynamicList);
 }

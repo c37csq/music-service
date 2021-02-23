@@ -503,44 +503,6 @@ class HomeController extends Controller {
     this.ctx.body = {
       data: arr,
     }
-
-    //   let sql = 'SELECT songs.id,' +
-    //   'songs.song_singer, ' +
-    //   'songs.song_name, ' +
-    //   'songs.song_url, ' +
-    //   'songs.song_introduce, ' +
-    //   'songs.song_album, ' +
-    //   'songs.create_user, ' +
-    //   'songs.create_id, ' +
-    //   "FROM_UNIXTIME(songs.create_time,'%Y-%m-%d %H:%i:%s') as create_time, " +
-    //   'songs.song_hot, ' +
-    //   'songtypes.name as type, ' +
-    //   'songtypes.id as typeId ' +
-    //   'FROM song_types LEFT JOIN songtypes ON song_types.songTypeId = songtypes.id ' +
-    //   'LEFT JOIN songs ON songs.id = song_types.songId ' +
-    //   'ORDER BY songs.create_time DESC'
-    // const result = await this.app.mysql.query(sql);
-
-    // const arr = [];
-
-    // // 进行数据处理
-    // for (let i = 0; i < result.length; i++) {
-    //   let types = new Array({ typeName: result[i].type, typeId: result[i].typeId });
-    //   for (let j = i + 1; j < result.length; j++) {
-    //     if (result[i].id === result[j].id) {
-    //       types.push({ typeName: result[j].type, typeId: result[j].typeId });
-    //     }
-    //   }
-    //   if (!(arr.find((value, index, arr) => value.id === result[i].id))) {
-    //     result[i].type = types;
-    //     delete result[i].typeId;
-    //     arr.push(result[i]);
-    //   }
-    // }
-
-    // this.ctx.body = {
-    //   data: arr.find(item => item.id === parseInt(id))
-    // }
   }
 
   // 提交评论
@@ -954,6 +916,130 @@ class HomeController extends Controller {
 
     this.ctx.body = {
       res: res.filter(item => item.id !== parseInt(song_id)),
+    }
+  }
+
+  // 获取动态列表
+  async getDynamicList () {
+    const id = parseInt(this.ctx.query.id);
+    const sql = 'SELECT ' +
+      'dynamic_parent.id, ' +
+      'dynamic_parent.likeCounts, ' +
+      'dynamic_parent.username, ' +
+      'dynamic_parent.avatar_url, ' +
+      "FROM_UNIXTIME(dynamic_parent.add_time,'%Y-%m-%d %H:%i:%s') as add_time, " +
+      'dynamic_parent.content, ' +
+      'dynamic_parent.song_id, ' +
+      'dynamic_parent.user_id, ' +
+      'dynamic_parent.username, ' +
+      'songs.id AS songId, ' +
+      'songs.song_singer, ' +
+      'songs.song_name, ' +
+      'songs.song_url, ' +
+      'dynamic_child.id AS childId, ' +
+      'dynamic_child.likeCounts AS childLikeCounts, ' +
+      'dynamic_child.username AS childUsername, ' +
+      'dynamic_child.avatar_url AS childAvatarUrl, ' +
+      "FROM_UNIXTIME(dynamic_child.add_time,'%Y-%m-%d %H:%i:%s') AS childAddTime, " +
+      'dynamic_child.content AS childContent, ' +
+      'dynamic_child.userId AS childUserId, ' +
+      'dynamic_child.relyPerson AS relyPerson, ' +
+      'dynamic_child.parentId, ' +
+      'dynamic_relation_parent.id AS parentDynamicId, ' +
+      'dynamic_relation_parent.username AS parentDynamicUsername, ' +
+      'dynamic_relation_parent.user_id AS parentDynamicUserId, ' +
+      'dynamic_relation_parent.dynamicParentId AS dynamicParentId, ' +
+      'dynamic_relation_child.id AS childDynamicId, ' +
+      'dynamic_relation_child.username AS childDynamicUsername, ' +
+      'dynamic_relation_child.user_id AS childDynamicUserId, ' +
+      'dynamic_relation_child.dynamicChildId AS dynamicChildId ' +
+      'FROM ' +
+      'dynamic_parent ' +
+      'LEFT JOIN songs on dynamic_parent.song_id = songs.id ' +
+      'LEFT JOIN dynamic_child on dynamic_parent.id = dynamic_child.parentId ' +
+      'LEFT JOIN dynamic_relation_parent on dynamic_parent.id = dynamic_relation_parent.dynamicParentId ' +
+      'LEFT JOIN dynamic_relation_child on dynamic_child.id = dynamic_relation_child.dynamicChildId ' +
+      'where dynamic_parent.user_id =' + id +
+      ' ORDER BY dynamic_parent.add_time DESC'
+
+    let result = await this.app.mysql.query(sql);
+
+    const musicList = result.map(item => ({
+      id: item.songId,
+      song_name: item.song_name,
+      song_singer: item.song_singer,
+      song_url: item.song_url
+    }));
+
+    const parentDynamic = result.map(item => ({
+      id: item.id,
+      likeCounts: item.likeCounts,
+      username: item.username,
+      avatar_url: item.avatar_url,
+      add_time: item.add_time,
+      content: item.content,
+      song_id: item.song_id,
+      user_id: item.user_id
+    }));
+
+    const parentLikePersons = result.map(item => ({
+      id: item.parentDynamicUserId || 0,
+      name: item.parentDynamicUsername || "",
+      dynamicId: item.dynamicParentId || 0
+    }))
+
+    const childDynamic = result.map(item => ({
+      childId: item.childId || 0,
+      childLikeCounts: item.childLikeCounts || 0,
+      childUsername: item.childUsername || "",
+      childAvatarUrl: item.childAvatarUrl || "",
+      childAddTime: item.childAddTime || "",
+      childContent: item.childContent || "",
+      childUserId: item.childUserId || 0,
+      relyPerson: item.relyPerson || "",
+      parentId: item.parentId || 0
+    }))
+
+    const childLikePersons = result.map(item => ({
+      id: item.childDynamicUserId || 0,
+      name: item.childDynamicUsername || "",
+      dynamicId: item.dynamicChildId || 0
+    }));
+
+    for (let i = 0; i < childDynamic.length; i ++) {
+      let likePersons = [];
+      for (let j = 0; j < childLikePersons.length; j ++) {
+        if (childLikePersons[j].dynamicId === childDynamic[i].childId) {
+          likePersons.push(childLikePersons[j]);
+        }
+      }
+      childDynamic[i].childrenLikePersons = likePersons;
+    }
+
+    for (let i = 0; i < parentDynamic.length; i ++) {
+      let children = [];
+      let likePersons = [];
+      for (let j = 0; j < childDynamic.length; j ++) {
+        if (childDynamic[j].parentId === parentDynamic[i].id) {
+          children.push(childDynamic[j]);
+        }
+      }
+      for (let k = 0; k < parentLikePersons.length; k ++) {
+        if (parentLikePersons[k].dynamicId === parentDynamic[i].id) {
+          likePersons.push(parentLikePersons[k]);
+        }
+      }
+      for (let l = 0; l < musicList.length; l ++) {
+        if (musicList[l].id === parentDynamic[i].song_id) {
+          parentDynamic[i].song = musicList[l];
+        }
+      }
+      parentDynamic[i].children = children;
+      parentDynamic[i].likePersons = likePersons;
+    }
+
+    this.ctx.body = {
+      arr: parentDynamic
     }
   }
 }
