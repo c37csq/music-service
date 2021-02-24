@@ -935,6 +935,7 @@ class HomeController extends Controller {
       'songs.id AS songId, ' +
       'songs.song_singer, ' +
       'songs.song_name, ' +
+      'songs.song_hot, ' +
       'songs.song_url, ' +
       'dynamic_child.id AS childId, ' +
       'dynamic_child.likeCounts AS childLikeCounts, ' +
@@ -968,7 +969,8 @@ class HomeController extends Controller {
       id: item.songId,
       song_name: item.song_name,
       song_singer: item.song_singer,
-      song_url: item.song_url
+      song_url: item.song_url,
+      song_hot: item.song_hot
     }));
 
     const parentDynamic = result.map(item => ({
@@ -1013,7 +1015,7 @@ class HomeController extends Controller {
           likePersons.push(childLikePersons[j]);
         }
       }
-      childDynamic[i].childrenLikePersons = likePersons;
+      childDynamic[i].likePersons = likePersons;
     }
 
     for (let i = 0; i < parentDynamic.length; i ++) {
