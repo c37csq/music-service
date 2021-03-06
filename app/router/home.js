@@ -36,6 +36,8 @@ module.exports = app => {
   router.get('/default/getCommentList', controller.home.getCommentList);
   // 回复评论
   router.post('/default/relyComment', interceptor, controller.home.relyComment);
+  // 回复动态
+  router.post('/default/relyDynamic', interceptor, controller.home.relyDynamic);
   // 点赞
   router.post('/default/goodToPerson', interceptor, controller.home.goodToPerson);
   // 取消点赞
@@ -48,4 +50,14 @@ module.exports = app => {
   router.post('/default/getSameListById', controller.home.getSameListById);
   // 获取动态列表
   router.get('/default/getDynamicList', interceptor, controller.home.getDynamicList);
+  // 根据关键词获取歌曲列表
+  router.get('/default/getSongsByLike', controller.home.getSongsByLike);
+  // 分享动态
+  router.post('/default/addDynamic', interceptor, controller.home.addDynamic);
+  // 点赞动态
+  router.post('/default/goodToDynamic', interceptor, controller.home.goodToDynamic);
+  // 取消点赞动态
+  router.post('/default/disGoodToDynamic', interceptor, controller.home.disGoodToDynamic);
+  // 删除动态
+  router.post('/default/deleteDynamic', interceptor, controller.home.deleteDynamic);
 }

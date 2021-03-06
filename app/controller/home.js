@@ -694,6 +694,26 @@ class HomeController extends Controller {
     }
   }
 
+  // 回复动态
+  async relyDynamic () {
+    let { parentId, username, avatar_url, add_time, content, user_id, relyPerson } = this.ctx.request.body;
+    const insertInfo = await this.app.mysql.insert('dynamic_child', {
+      parentId,
+      username,
+      add_time,
+      content,
+      userId: user_id,
+      relyPerson,
+      avatar_url,
+    });
+    if (insertInfo.affectedRows === 1) {
+      this.ctx.body = {
+        msg: '评论成功',
+        status: 200
+      }
+    }
+  }
+
   // 点赞
   async goodToPerson () {
     let { type, username, user_id, toPersonName, toPersonId, commentId, likeCounts } = this.ctx.request.body;
@@ -839,18 +859,78 @@ class HomeController extends Controller {
     }
   }
 
+  // 删除动态
+  async deleteDynamic () {
+    let { type, id, childId } = this.ctx.request.body;
+    if (type === 'parent') {
+      const deleteInfo = await this.app.mysql.delete('dynamic_parent', {
+        id: id
+      })
+      if (deleteInfo.affectedRows === 1) {
+        if (childId === '0') {
+          this.ctx.body = {
+            msg: '删除成功！',
+            status: 200
+          }
+        } else {
+          const deleteChildInfo = await this.app.mysql.delete('dynamic_child', {
+            parentId: id
+          });
+          const deleteCommentParentInfo = await this.app.mysql.delete('dynamic_relation_parent', {
+            dynamicParentId: id
+          });
+          for (let i = 0; i < childId.length; i++) {
+            const deleteCommentChildInfo = await this.app.mysql.delete('dynamic_relation_child', {
+              dynamicChildId: childId[i]
+            });
+          }
+          this.ctx.body = {
+            msg: '删除成功！',
+            status: 200
+          }
+        }
+      }
+    } else if (type === 'children') {
+      const deleteInfo = await this.app.mysql.delete('dynamic_child', {
+        id: childId
+      })
+      if (deleteInfo.affectedRows === 1) {
+        const deleteCommentChildInfo = await this.app.mysql.delete('dynamic_relation_child', {
+          dynamicChildId: childId
+        });
+        this.ctx.body = {
+          msg: '删除成功！',
+          status: 200
+        }
+      }
+    }
+  }
+
   // 收藏音乐
   async saveMusic () {
     let { song_id, user_id, type } = this.ctx.request.body;
     if (type === 'save') {
-      const insertInfo = await this.app.mysql.insert('relation_music_save', {
-        song_id,
-        user_id
-      });
-      if (insertInfo.affectedRows === 1) {
+      let selectInfo = await this.app.mysql.select("relation_music_save", {
+        where: {
+          song_id,
+          user_id
+        }
+      })
+      if (selectInfo.length > 0) {
         this.ctx.body = {
-          msg: '收藏成功！',
-          status: 200
+          msg: '你已收藏该音乐！',
+          status: 444
+        }
+      } else {
+        const insertInfo = await this.app.mysql.insert('relation_music_save', {
+          song_id,
+          user_id
+        });
+        if (insertInfo.affectedRows === 1) {
+          this.ctx.body = {
+            msg: '收藏成功！',
+            status: 200
+          }
         }
       }
     } else if (type === 'disSave') {
@@ -863,6 +943,25 @@ class HomeController extends Controller {
           msg: '取消收藏成功！',
           status: 200
         }
+      }
+    } else if (type === 'saveAll') {
+      song_id.forEach(async item => {
+        let selectInfo = await this.app.mysql.select("relation_music_save", {
+          where: {
+            song_id: item,
+            user_id
+          }
+        })
+        if (selectInfo.length === 0) {
+          const insertInfo = await this.app.mysql.insert('relation_music_save', {
+            song_id: item,
+            user_id
+          });
+        }
+      })
+      this.ctx.body = {
+        msg: '收藏成功！',
+        status: 200
       }
     }
   }
@@ -1008,9 +1107,9 @@ class HomeController extends Controller {
       dynamicId: item.dynamicChildId || 0
     }));
 
-    for (let i = 0; i < childDynamic.length; i ++) {
+    for (let i = 0; i < childDynamic.length; i++) {
       let likePersons = [];
-      for (let j = 0; j < childLikePersons.length; j ++) {
+      for (let j = 0; j < childLikePersons.length; j++) {
         if (childLikePersons[j].dynamicId === childDynamic[i].childId) {
           likePersons.push(childLikePersons[j]);
         }
@@ -1018,20 +1117,20 @@ class HomeController extends Controller {
       childDynamic[i].likePersons = likePersons;
     }
 
-    for (let i = 0; i < parentDynamic.length; i ++) {
+    for (let i = 0; i < parentDynamic.length; i++) {
       let children = [];
       let likePersons = [];
-      for (let j = 0; j < childDynamic.length; j ++) {
+      for (let j = 0; j < childDynamic.length; j++) {
         if (childDynamic[j].parentId === parentDynamic[i].id) {
           children.push(childDynamic[j]);
         }
       }
-      for (let k = 0; k < parentLikePersons.length; k ++) {
+      for (let k = 0; k < parentLikePersons.length; k++) {
         if (parentLikePersons[k].dynamicId === parentDynamic[i].id) {
           likePersons.push(parentLikePersons[k]);
         }
       }
-      for (let l = 0; l < musicList.length; l ++) {
+      for (let l = 0; l < musicList.length; l++) {
         if (musicList[l].id === parentDynamic[i].song_id) {
           parentDynamic[i].song = musicList[l];
         }
@@ -1039,9 +1138,180 @@ class HomeController extends Controller {
       parentDynamic[i].children = children;
       parentDynamic[i].likePersons = likePersons;
     }
+    utils.noRepeat(parentDynamic, 'id');
 
     this.ctx.body = {
       arr: parentDynamic
+    }
+  }
+
+  // 根据关键词获取歌曲列表
+  async getSongsByLike () {
+    const like = this.ctx.query.like;
+
+    let sql = 'SELECT songs.id,' +
+      'songs.song_singer, ' +
+      'songs.song_name, ' +
+      'songs.song_url, ' +
+      'songs.song_introduce, ' +
+      'songs.song_album, ' +
+      'songs.create_user, ' +
+      'songs.create_id, ' +
+      "FROM_UNIXTIME(songs.create_time,'%Y-%m-%d %H:%i:%s') as create_time, " +
+      'songs.song_hot, ' +
+      'songtypes.name as type, ' +
+      'songtypes.id as typeId ' +
+      'FROM song_types LEFT JOIN songtypes ON song_types.songTypeId = songtypes.id ' +
+      'LEFT JOIN songs ON songs.id = song_types.songId ' +
+      'ORDER BY songs.create_time DESC'
+
+    const result = await this.app.mysql.query(sql);
+
+    const arr = [];
+
+    // 进行数据处理
+    for (let i = 0; i < result.length; i++) {
+      let types = new Array({ typeName: result[i].type, typeId: result[i].typeId });
+      for (let j = i + 1; j < result.length; j++) {
+        if (result[i].id === result[j].id) {
+          types.push({ typeName: result[j].type, typeId: result[j].typeId });
+        }
+      }
+      if (!(arr.find((value, index, arr) => value.id === result[i].id))) {
+        result[i].type = types;
+        delete result[i].typeId;
+        arr.push(result[i]);
+      }
+    }
+
+    const res = [];
+
+    arr.forEach(item => {
+      res.push(item);
+    })
+
+    this.ctx.body = {
+      status: 200,
+      result: res.filter(item => item.song_name.indexOf(like) !== -1)
+    }
+  }
+
+  // 添加动态
+  async addDynamic () {
+    const { likeCounts, avatar_url, add_time, content, song_id, user_id, username } = this.ctx.request.body;
+    const insertInfo = await this.app.mysql.insert('dynamic_parent', {
+      likeCounts,
+      username,
+      avatar_url,
+      add_time,
+      content,
+      song_id,
+      user_id,
+      username
+    });
+    if (insertInfo.affectedRows === 1) {
+      this.ctx.body = {
+        msg: '发布动态成功！',
+        status: 200
+      }
+    }
+  }
+
+  // 点赞动态
+  async goodToDynamic () {
+    let { type, username, user_id, toPersonName, toPersonId, dynamicId, likeCounts } = this.ctx.request.body;
+    if (type === 'parent') {
+      const result = await this.app.mysql.update('dynamic_parent', {
+        likeCounts: likeCounts + 1 //需要修改的数据
+      }, {
+        where: {
+          id: dynamicId
+        } //修改查询条件
+      });
+      if (result.affectedRows === 1) {
+        const insertInfo = await this.app.mysql.insert('dynamic_relation_parent', {
+          username,
+          user_id,
+          toPersonName,
+          toPersonId,
+          dynamicParentId: dynamicId
+        });
+        if (insertInfo.affectedRows === 1) {
+          this.ctx.body = {
+            msg: '点赞成功！',
+            status: 200
+          }
+        }
+      }
+    } else if (type === 'children') {
+      const result = await this.app.mysql.update('dynamic_child', {
+        likeCounts: likeCounts + 1 //需要修改的数据
+      }, {
+        where: {
+          id: dynamicId
+        } //修改查询条件
+      });
+      if (result.affectedRows === 1) {
+        const insertInfo = await this.app.mysql.insert('dynamic_relation_child', {
+          username,
+          user_id,
+          toPersonName,
+          toPersonId,
+          dynamicChildId: dynamicId
+        });
+        if (insertInfo.affectedRows === 1) {
+          this.ctx.body = {
+            msg: '点赞成功！',
+            status: 200
+          }
+        }
+      }
+    }
+  }
+
+  // 取消点赞
+  async disGoodToDynamic () {
+    let { type, user_id, dynamicId, likeCounts } = this.ctx.request.body;
+    if (type === 'parent') {
+      const result = await this.app.mysql.update('dynamic_parent', {
+        likeCounts: likeCounts - 1 //需要修改的数据
+      }, {
+        where: {
+          id: dynamicId
+        } //修改查询条件
+      });
+      if (result.affectedRows === 1) {
+        const deleteInfo = await this.app.mysql.delete('dynamic_relation_parent', {
+          dynamicParentId: dynamicId,
+          user_id,
+        })
+        if (deleteInfo.affectedRows === 1) {
+          this.ctx.body = {
+            msg: '取消点赞成功！',
+            status: 200
+          }
+        }
+      }
+    } else if (type === 'children') {
+      const result = await this.app.mysql.update('dynamic_child', {
+        likeCounts: likeCounts - 1 //需要修改的数据
+      }, {
+        where: {
+          id: dynamicId
+        } //修改查询条件
+      });
+      if (result.affectedRows === 1) {
+        const deleteInfo = await this.app.mysql.delete('dynamic_relation_child', {
+          dynamicChildId: dynamicId,
+          user_id: user_id
+        })
+        if (deleteInfo.affectedRows === 1) {
+          this.ctx.body = {
+            msg: '取消点赞成功！',
+            status: 200
+          }
+        }
+      }
     }
   }
 }
