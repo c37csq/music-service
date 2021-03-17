@@ -60,4 +60,6 @@ module.exports = app => {
   router.post('/default/disGoodToDynamic', interceptor, controller.home.disGoodToDynamic);
   // 删除动态
   router.post('/default/deleteDynamic', interceptor, controller.home.deleteDynamic);
+  // 获取用户信息
+  router.get('/default/getUserInfo', controller.home.getUserInfo);
 }

@@ -223,7 +223,7 @@ class HomeController extends Controller {
     // 有相同的用户名
     if (result.length > 0) {
       // 数据库查询的数据
-      const { id, username, password: database_pass, avatar_url } = result[0];
+      const { id, username, password: database_pass, avatar_url, dynamicCounts, likeCounts, concernedCounts, } = result[0];
 
       // 判断数据库密码与用户输入是否相同
       const flag = bcrypt.compareSync(user_pass, database_pass);
@@ -254,7 +254,10 @@ class HomeController extends Controller {
           data: {
             id,
             username,
-            avatar_url
+            avatar_url,
+            dynamicCounts,
+            likeCounts,
+            concernedCounts
           },
           status: 200
         }
@@ -343,6 +346,8 @@ class HomeController extends Controller {
   async getSongs () {
     const status = this.ctx.query.status;
     const typeId = this.ctx.query.typeId;
+    const user_id = this.ctx.query.user_id;
+    const type = this.ctx.query.type;
     let sql;
     if (status === 'new') {
       sql = 'SELECT songs.id,' +
@@ -409,9 +414,31 @@ class HomeController extends Controller {
       });
     }
 
-    this.ctx.body = {
-      status: 200,
-      result: res
+    if (user_id) {
+      if (type === 'save') {
+        // const arr = this.
+        const result = await this.app.mysql.select('relation_music_save', {
+          columns: ['song_id'],
+          where: {
+            user_id: user_id
+          }
+        });
+        const arr = result.map(item => item.song_id);
+        this.ctx.body = {
+          status: 200,
+          result: res.filter(item => arr.includes(item.id))
+        }
+      } else {
+        this.ctx.body = {
+          status: 200,
+          result: res.filter(item => item.create_id === parseInt(user_id))
+        }
+      }
+    } else {
+      this.ctx.body = {
+        status: 200,
+        result: res
+      }
     }
   }
 
@@ -1198,21 +1225,24 @@ class HomeController extends Controller {
 
   // 添加动态
   async addDynamic () {
-    const { likeCounts, avatar_url, add_time, content, song_id, user_id, username } = this.ctx.request.body;
-    const insertInfo = await this.app.mysql.insert('dynamic_parent', {
-      likeCounts,
-      username,
-      avatar_url,
-      add_time,
-      content,
-      song_id,
-      user_id,
-      username
-    });
-    if (insertInfo.affectedRows === 1) {
-      this.ctx.body = {
-        msg: '发布动态成功！',
-        status: 200
+    const { likeCounts, avatar_url, add_time, content, song_id, user_id, username, dynamicCounts } = this.ctx.request.body;
+    let updateInfo = await this.app.mysql.update('users', { id: user_id, dynamicCounts: dynamicCounts + 1 });
+    if (updateInfo.affectedRows === 1) {
+      const insertInfo = await this.app.mysql.insert('dynamic_parent', {
+        likeCounts,
+        username,
+        avatar_url,
+        add_time,
+        content,
+        song_id,
+        user_id,
+        username
+      });
+      if (insertInfo.affectedRows === 1) {
+        this.ctx.body = {
+          msg: '发布动态成功！',
+          status: 200
+        }
       }
     }
   }
@@ -1312,6 +1342,21 @@ class HomeController extends Controller {
           }
         }
       }
+    }
+  }
+
+  // 获取用户信息
+  async getUserInfo () {
+    const id = this.ctx.query.user_id;
+
+    const result = await this.app.mysql.select('users', {
+      columns: ['id', 'username', 'avatar_url', 'dynamicCounts', 'likeCounts', 'concernedCounts', 'introduce', 'sex', 'age'], //查询字段，全部查询则不写，相当于查询*
+      where: {
+        id: parseInt(id)
+      } //查询条件
+    })
+    this.ctx.body = {
+      data: result[0]
     }
   }
 }
