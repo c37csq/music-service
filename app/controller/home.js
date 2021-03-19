@@ -1448,7 +1448,7 @@ class HomeController extends Controller {
       let sql = 'select id, username, avatar_url from users where id in(' + str + ')';
       const result = await this.app.mysql.query(sql);
       this.ctx.body = {
-        result,
+        result: result.slice(0, 9),
         status: 200
       }
     }
