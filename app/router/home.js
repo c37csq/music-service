@@ -62,4 +62,10 @@ module.exports = app => {
   router.post('/default/deleteDynamic', interceptor, controller.home.deleteDynamic);
   // 获取用户信息
   router.get('/default/getUserInfo', controller.home.getUserInfo);
+  // 关注用户
+  router.post('/default/likePerson', interceptor, controller.home.likePerson);
+  // 取消关注用户
+  router.post('/default/disLikePerson', interceptor, controller.home.disLikePerson);
+   // 关注用户列表
+   router.post('/default/getConcernList', controller.home.getConcernList);
 }

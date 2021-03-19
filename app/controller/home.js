@@ -888,32 +888,35 @@ class HomeController extends Controller {
 
   // 删除动态
   async deleteDynamic () {
-    let { type, id, childId } = this.ctx.request.body;
+    let { type, id, childId, user_id, dynamicCounts } = this.ctx.request.body;
     if (type === 'parent') {
       const deleteInfo = await this.app.mysql.delete('dynamic_parent', {
         id: id
       })
       if (deleteInfo.affectedRows === 1) {
-        if (childId === '0') {
-          this.ctx.body = {
-            msg: '删除成功！',
-            status: 200
-          }
-        } else {
-          const deleteChildInfo = await this.app.mysql.delete('dynamic_child', {
-            parentId: id
-          });
-          const deleteCommentParentInfo = await this.app.mysql.delete('dynamic_relation_parent', {
-            dynamicParentId: id
-          });
-          for (let i = 0; i < childId.length; i++) {
-            const deleteCommentChildInfo = await this.app.mysql.delete('dynamic_relation_child', {
-              dynamicChildId: childId[i]
+        let updateInfo = await this.app.mysql.update('users', { id: user_id, dynamicCounts: dynamicCounts - 1 });
+        if (updateInfo.affectedRows === 1) {
+          if (childId === '0') {
+            this.ctx.body = {
+              msg: '删除成功！',
+              status: 200
+            }
+          } else {
+            const deleteChildInfo = await this.app.mysql.delete('dynamic_child', {
+              parentId: id
             });
-          }
-          this.ctx.body = {
-            msg: '删除成功！',
-            status: 200
+            const deleteCommentParentInfo = await this.app.mysql.delete('dynamic_relation_parent', {
+              dynamicParentId: id
+            });
+            for (let i = 0; i < childId.length; i++) {
+              const deleteCommentChildInfo = await this.app.mysql.delete('dynamic_relation_child', {
+                dynamicChildId: childId[i]
+              });
+            }
+            this.ctx.body = {
+              msg: '删除成功！',
+              status: 200
+            }
           }
         }
       }
@@ -1162,6 +1165,7 @@ class HomeController extends Controller {
           parentDynamic[i].song = musicList[l];
         }
       }
+      utils.noRepeat(children, 'childId');
       parentDynamic[i].children = children;
       parentDynamic[i].likePersons = likePersons;
     }
@@ -1355,8 +1359,98 @@ class HomeController extends Controller {
         id: parseInt(id)
       } //查询条件
     })
+
+    // 粉丝
+    const fans = await this.app.mysql.select('like_relation_person', {
+      columns: ['user_id'],
+      where: {
+        likeUserId: parseInt(id)
+      }
+    })
+
+    // 关注
+    const concernPerson = await this.app.mysql.select('like_relation_person', {
+      columns: ['likeUserId'],
+      where: {
+        user_id: parseInt(id)
+      }
+    })
+
+    let concerns = concernPerson.map(item => item.likeUserId);
+    result[0].concernPerson = concerns;
+
+    let fan = fans.map(item => item.user_id);
+
+    result[0].fans = fan;
+
     this.ctx.body = {
-      data: result[0]
+      data: result[0],
+    }
+  }
+
+  // 关注用户
+  async likePerson () {
+    const { user_id, likeUserId, concernCounts } = this.ctx.request.body;
+    const insertInfo = await this.app.mysql.insert('like_relation_person', {
+      user_id,
+      likeUserId
+    });
+    if (insertInfo.affectedRows === 1) {
+      let res = await this.app.mysql.select('users', {
+        columns: ['likeCounts'],
+        where: {
+          id: parseInt(user_id)
+        }
+      })
+
+      const result = await this.app.mysql.update('users', { id: likeUserId, concernedCounts: concernCounts + 1 });
+      const result2 = await this.app.mysql.update('users', { id: user_id, likeCounts: res[0].likeCounts + 1 });
+      this.ctx.body = {
+        msg: '关注成功！',
+        status: 200
+      }
+    }
+  }
+
+  // 取消关注用户
+  async disLikePerson () {
+    const { user_id, likeUserId, concernCounts } = this.ctx.request.body;
+
+    const deleteInfo = await this.app.mysql.delete('like_relation_person', {
+      user_id,
+      likeUserId
+    })
+    if (deleteInfo.affectedRows === 1) {
+      let res = await this.app.mysql.select('users', {
+        columns: ['likeCounts'],
+        where: {
+          id: parseInt(user_id)
+        }
+      })
+      const result = await this.app.mysql.update('users', { id: likeUserId, concernedCounts: concernCounts - 1 });
+      const result2 = await this.app.mysql.update('users', { id: user_id, likeCounts: res[0].likeCounts - 1 });
+      this.ctx.body = {
+        msg: '取消关注成功！',
+        status: 200
+      }
+    }
+  }
+
+  async getConcernList () {
+    const { idArrs } = this.ctx.request.body;
+    if (idArrs.length === 0) {
+      this.ctx.body = {
+        result: [],
+        status: 200
+      }
+    } else {
+      let str = idArrs.join(',');
+      let sql = 'select id, username, avatar_url from users where id in(' + str + ')';
+      const result = await this.app.mysql.query(sql);
+      this.ctx.body = {
+        result,
+        status: 200
+      }
     }
   }
 }
