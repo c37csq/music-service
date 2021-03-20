@@ -68,4 +68,8 @@ module.exports = app => {
   router.post('/default/disLikePerson', interceptor, controller.home.disLikePerson);
    // 关注用户列表
    router.post('/default/getConcernList', controller.home.getConcernList);
+   // 关注用户详细信息列表
+   router.post('/default/getConcernDetailList', controller.home.getConcernDetailList);
+   // 粉丝列表
+   router.post('/default/getFans', controller.home.getFans);
 }
