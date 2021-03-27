@@ -1518,6 +1518,65 @@ class HomeController extends Controller {
       }
     }
   }
+
+  // 获取粉丝详细信息列表
+  async getFansDetailList () {
+    const { idArrs } = this.ctx.request.body;
+    if (idArrs.length === 0) {
+      this.ctx.body = {
+        result: [],
+        status: 200
+      }
+    } else {
+      let str = idArrs.join(',');
+      let sql = 'select id, username, avatar_url, dynamicCounts, likeCounts, concernedCounts, introduce, sex from users where id in(' + str + ')';
+      const result = await this.app.mysql.query(sql);
+      let arr = idArrs.reverse();
+      for (let i = 0; i < arr.length; i++) {
+        // 粉丝
+        const fans = await this.app.mysql.select('like_relation_person', {
+          columns: ['user_id'],
+          where: {
+            likeUserId: parseInt(arr[i])
+          }
+        })
+
+        // 关注
+        const concernPerson = await this.app.mysql.select('like_relation_person', {
+          columns: ['likeUserId'],
+          where: {
+            user_id: parseInt(arr[i])
+          }
+        })
+
+        let concerns = concernPerson.map(item => item.likeUserId);
+        result[i].concernPerson = concerns;
+
+        let fan = fans.map(item => item.user_id);
+
+        result[i].fans = fan;
+      }
+
+      this.ctx.body = {
+        result: result,
+        status: 200
+      }
+    }
+  }
+
+  // 修改用户信息
+  async updateUserInfo () {
+    const { id, username, introduce, sex, male, age } = this.ctx.request.body;
+
+    const result = await this.app.mysql.update('users', { id: parseInt(id), username, introduce, sex, age: age || null });
+
+    if (result.affectedRows === 1) {
+      this.ctx.body = {
+        msg: '修改成功！',
+        status: 200
+      }
+    }
+  }
 }
 
 module.exports = HomeController;

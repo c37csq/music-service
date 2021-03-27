@@ -72,4 +72,8 @@ module.exports = app => {
    router.post('/default/getConcernDetailList', controller.home.getConcernDetailList);
    // 粉丝列表
    router.post('/default/getFans', controller.home.getFans);
+   // 粉丝详细列表
+   router.post('/default/getFansDetailList', controller.home.getFansDetailList);
+   // 修改用户信息
+   router.post('/default/updateUserInfo', interceptor, controller.home.updateUserInfo);
 }
